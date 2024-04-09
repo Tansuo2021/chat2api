@@ -149,23 +149,25 @@
                 body: formData
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                document.getElementById('response').textContent = JSON.stringify(data, null, 2);
-                // 假设图像URL在data中的路径为data.urls[0]，请根据实际情况调整
-                const imageUrl = data.urls[0]; // 根据实际API响应结构获取URL
+           if (response.ok) {
+    const data = await response.json();
+    document.getElementById('response').textContent = JSON.stringify(data, null, 2);
 
-                const imgElement = document.createElement('img');
-                imgElement.src = imageUrl;
-                imgElement.width = 512; // 设置图像宽度
-                imgElement.height = 512; // 设置图像高度
-                document.getElementById('imageDisplay').innerHTML = ''; // 清除旧图像（如果有）
-                document.getElementById('imageDisplay').appendChild(imgElement);
-                alert('图像重新获取成功！');
-            } else {
-                console.error('重新获取图像失败:', response.statusText);
-                document.getElementById('response').textContent = '重新获取图像失败: ' + response.statusText;
-            }
+    // 假设每个图像的URL位于data.data中的url属性中
+    data.data.forEach(item => {
+        const imageUrl = item.url; // 根据实际API响应结构获取URL
+
+        const imgElement = document.createElement('img');
+        imgElement.src = imageUrl;
+        imgElement.width = 512; // 设置图像宽度
+        imgElement.height = 512; // 设置图像高度
+        document.getElementById('imageDisplay').appendChild(imgElement);
+    });
+    alert('图像重新获取成功！');
+} else {
+    console.error('重新获取图像失败:', response.statusText);
+    document.getElementById('response').textContent = '重新获取图像失败: ' + response.statusText;
+}
         }
     </script>
 </head>
@@ -241,12 +243,15 @@
         <button onclick="refetchImageWithMask()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">使用遮罩重新获取图像</button>
         
         <div id="response" class="mt-8 p-4 bg-white rounded shadow"></div>
+		<!-- 添加一个新的div用于展示图片 -->
+           <div id="imageDisplay" class="mt-8"></div>
+		
         
         <div id="canvas-container" class="mt-8 relative">
             <canvas id="backgroundCanvas" style="position: absolute; left: 0; top: 0; z-index: 1;"></canvas>
             <canvas id="drawingCanvas" style="position: absolute; left: 0; top: 0; z-index: 2;"></canvas>
         </div>
     </div>
-    <!-- JavaScript remains the same -->
+   
 </body>
 </html>
