@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>图像获取与遮罩创建</title>
+	 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script>
+        async function fetchImage() {
+            const apiKey = document.getElementById('apiKey').value;
+            const apiURL = document.getElementById('apiURL').value;
+            const model = document.getElementById('model').value;
+            const prompt = document.getElementById('prompt').value;
+            const n = parseInt(document.getElementById('n').value, 2);
+            const size = document.getElementById('size').value;
+
+            const response = await fetch(apiURL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: model,
+                    prompt: prompt,
+                    n: 1,
+                    size: size
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('response').textContent = JSON.stringify(data, null, 2);
+                const imageUrl = data.data[0].url;
+                sessionStorage.setItem('fetchedImageUrl', imageUrl);
+                // 显示生成的图片而不是URL
+                const imgElement = document.createElement('img');
+                imgElement.src = imageUrl;
+                imgElement.width = 512; // 设置图像宽度
+                imgElement.height = 512; // 设置图像高度
+                document.getElementById('imageDisplay').innerHTML = ''; // 清除旧图像（如果有）
+                document.getElementById('imageDisplay').appendChild(imgElement);
+                alert('图片成功生成！');
+            } else {
+                console.error('获取图像失败:', response.statusText);
+                document.getElementById('response').textContent = '获取图像失败: ' + response.statusText;
+            }
+        }
+
+        function loadFetchedImageIntoCanvas() {
+            const imageUrl = sessionStorage.getItem('fetchedImageUrl');
+            if (!imageUrl) {
+                alert('请先生成图片！');
+                return;
+            }
+            const img = new Image();
+            img.onload = function() {
+                initializeCanvas(img.width, img.height);
+                backgroundCtx.drawImage(img, 0, 0, img.width, img.height);
+            };
+            img.src = imageUrl;
+        }
+
+        let backgroundCanvas, drawingCanvas, backgroundCtx, drawingCtx;
+        document.addEventListener('DOMContentLoaded', function() {
+            backgroundCanvas = document.getElementById('backgroundCanvas');
+            drawingCanvas = document.getElementById('drawingCanvas');
+            backgroundCtx = backgroundCanvas.getContext('2d');
+            drawingCtx = drawingCanvas.getContext('2d');
+
+            drawingCanvas.addEventListener('mousedown', startDrawing);
+            drawingCanvas.addEventListener('mousemove', draw);
+            drawingCanvas.addEventListener('mouseup', stopDrawing);
+            drawingCanvas.addEventListener('mouseout', stopDrawing);
+            document.getElementById('export').addEventListener('click', exportMask);
+        });
+
+        let isDrawing = false;
+
+        function initializeCanvas(width, height) {
+            backgroundCanvas.width = width;
+            backgroundCanvas.height = height;
+            drawingCanvas.width = width;
+            drawingCanvas.height = height;
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            draw(e);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const rect = drawingCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            drawingCtx.lineWidth = 50;
+            drawingCtx.lineCap = 'round';
+            drawingCtx.strokeStyle = 'rgba(0,0,0,0.5)';
+
+            drawingCtx.lineTo(x, y);
+            drawingCtx.stroke();
+            drawingCtx.beginPath();
+            drawingCtx.moveTo(x, y);
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            drawingCtx.beginPath();
+        }
+
+        function exportMask() {
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = drawingCanvas.width;
+            tempCanvas.height = drawingCanvas.height;
+
+            tempCtx.fillStyle = '#ffffff';
+            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+            tempCtx.drawImage(drawingCanvas, 0, 0);
+
+            const link = document.createElement('a');
+            link.download = 'mask.png';
+            link.href = tempCanvas.toDataURL('image/png');
+            link.click();
+        }
+
+        async function refetchImageWithMask() {
+            const apiKey2 = document.getElementById('editapiKey').value;
+            const apiURL2 = document.getElementById('editApiURL').value;
+            const prompt2 = document.getElementById('editPrompt').value;
+
+            const originalImageFile = document.getElementById('originalImageFile').files[0];
+            const maskImageFile = document.getElementById('maskFile').files[0];
+
+            const formData = new FormData();
+            formData.append('image', originalImageFile);
+            formData.append('mask', maskImageFile);
+            formData.append('prompt', prompt2);
+            formData.append('n', '2');
+            formData.append('size', '1024x1024');
+
+            const response = await fetch(apiURL2, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey2}`
+                },
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('response').textContent = JSON.stringify(data, null, 2);
+                // 假设图像URL在data中的路径为data.urls[0]，请根据实际情况调整
+                const imageUrl = data.urls[0]; // 根据实际API响应结构获取URL
+
+                const imgElement = document.createElement('img');
+                imgElement.src = imageUrl;
+                imgElement.width = 512; // 设置图像宽度
+                imgElement.height = 512; // 设置图像高度
+                document.getElementById('imageDisplay').innerHTML = ''; // 清除旧图像（如果有）
+                document.getElementById('imageDisplay').appendChild(imgElement);
+                alert('图像重新获取成功！');
+            } else {
+                console.error('重新获取图像失败:', response.statusText);
+                document.getElementById('response').textContent = '重新获取图像失败: ' + response.statusText;
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8">图像获取与遮罩创建</h1>
+
+        <div class="mb-4">
+            <label for="apiKey" class="block text-gray-700 text-sm font-bold mb-2">API 密钥:</label>
+            <input type="text" id="apiKey" name="apiKey" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+
+        <div class="mb-4">
+            <label for="apiURL" class="block text-gray-700 text-sm font-bold mb-2">API URL:</label>
+            <input type="text" id="apiURL" name="apiURL" value="https://api.oaifree.com/v1/images/generations" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+
+        <div class="mb-4">
+            <label for="model" class="block text-gray-700 text-sm font-bold mb-2">模型:</label>
+            <input type="text" id="model" name="model" value="dall-e-3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+
+        <div class="mb-4">
+            <label for="prompt" class="block text-gray-700 text-sm font-bold mb-2">提示:</label>
+            <input type="text" id="prompt" name="prompt" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+
+        <div class="mb-4">
+            <label for="n" class="block text-gray-700 text-sm font-bold mb-2">N:</label>
+            <input type="number" id="n" name="n" value="1" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+
+        <div class="mb-4">
+            <label for="size" class="block text-gray-700 text-sm font-bold mb-2">大小:</label>
+            <select id="size" name="size" class="block appearance-none w-full bg-white border border-gray-400 hover:border-gray-500 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline">
+                <option value="1024x1024">1024x1024</option>
+                <option value="1024x1792">1024x1792</option>
+                <option value="1792x1024">1792x1024</option>
+            </select>
+        </div>
+
+        <div class="flex gap-4 mb-8">
+            <button onclick="fetchImage()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">生成图像</button>
+            <button onclick="loadFetchedImageIntoCanvas()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">载入图像到画布</button>
+            <button id="export" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">导出遮罩</button>
+        </div>
+
+        <div class="mb-4">
+            <label for="maskFile" class="block text-gray-700 text-sm font-bold mb-2">遮罩图像:</label>
+            <input type="file" id="maskFile" name="maskFile" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
+        </div>
+
+        <div class="mb-4">
+            <label for="originalImageFile" class="block text-gray-700 text-sm font-bold mb-2">原始图像:</label>
+            <input type="file" id="originalImageFile" name="originalImageFile" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
+        </div>
+
+        <div class="mb-4">
+            <label for="editApiURL" class="block text-gray-700 text-sm font-bold mb-2">编辑 API URL:</label>
+            <input type="text" id="editApiURL" name="editApiURL" value="https://api.oaifree.com/v1/images/edits" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+
+        <div class="mb-4">
+            <label for="editapiKey" class="block text-gray-700 text-sm font-bold mb-2">编辑 API 密钥:</label>
+            <input type="text" id="editapiKey" name="editapiKey" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+
+        <div class="mb-8">
+            <label for="editPrompt" class="block text-gray-700 text-sm font-bold mb-2">编辑提示:</label>
+            <input type="text" id="editPrompt" name="editPrompt" placeholder="在这里输入新的提示" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+
+        <button onclick="refetchImageWithMask()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">使用遮罩重新获取图像</button>
+        
+        <div id="response" class="mt-8 p-4 bg-white rounded shadow"></div>
+        
+        <div id="canvas-container" class="mt-8 relative">
+            <canvas id="backgroundCanvas" style="position: absolute; left: 0; top: 0; z-index: 1;"></canvas>
+            <canvas id="drawingCanvas" style="position: absolute; left: 0; top: 0; z-index: 2;"></canvas>
+        </div>
+    </div>
+    <!-- JavaScript remains the same -->
+</body>
+</html>
