@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <title>图像获取与遮罩创建</title>
-	 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <script>
+ <head> 
+  <meta charset="UTF-8" /> 
+  <title>图像获取与遮罩创建</title> 
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" /> 
+  <script>
         async function fetchImage() {
             const apiKey = document.getElementById('apiKey').value;
             const apiURL = document.getElementById('apiURL').value;
@@ -35,8 +35,8 @@
                 // 显示生成的图片而不是URL
                 const imgElement = document.createElement('img');
                 imgElement.src = imageUrl;
-                imgElement.width = 512; // 设置图像宽度
-                imgElement.height = 512; // 设置图像高度
+                imgElement.width = 256; // 设置图像宽度
+                imgElement.height = 256; // 设置图像高度
                 document.getElementById('imageDisplay').innerHTML = ''; // 清除旧图像（如果有）
                 document.getElementById('imageDisplay').appendChild(imgElement);
                 alert('图片成功生成！');
@@ -76,12 +76,13 @@
 
         let isDrawing = false;
 
-        function initializeCanvas(width, height) {
-            backgroundCanvas.width = width;
-            backgroundCanvas.height = height;
-            drawingCanvas.width = width;
-            drawingCanvas.height = height;
-        }
+      function initializeCanvas() {
+    const canvasSize = 1024; // 设定画布大小为1024x1024
+    backgroundCanvas.width = canvasSize;
+    backgroundCanvas.height = canvasSize;
+    drawingCanvas.width = canvasSize;
+    drawingCanvas.height = canvasSize;
+}
 
         function startDrawing(e) {
             isDrawing = true;
@@ -125,7 +126,97 @@
             link.href = tempCanvas.toDataURL('image/png');
             link.click();
         }
+         let drawingStates = []; // 用于存储画布状态的数组
 
+function saveDrawingState() {
+    // 保存当前的画布状态（包括背景和绘图层）
+    const state = drawingCanvas.toDataURL();
+    drawingStates.push(state);
+}
+
+
+
+// 修改startDrawing函数以在开始绘图时保存状态
+function startDrawing(e) {
+    isDrawing = true;
+    saveDrawingState(); // 在绘图开始前保存当前状态
+    draw(e);
+}
+
+function undoDrawing() {
+    console.log("尝试撤回操作");
+    if (drawingStates.length > 1) {
+        drawingStates.pop(); // 移除当前状态
+
+        const prevState = drawingStates[drawingStates.length - 1]; // 获取上一个状态
+        const img = new Image();
+        img.onload = function() {
+            console.log("图像加载完毕，正在恢复状态");
+            drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height); // 首先清除绘图层
+            drawingCtx.drawImage(img, 0, 0, drawingCanvas.width, drawingCanvas.height); // 然后恢复状态
+        };
+        img.src = prevState;
+    } else if (drawingStates.length === 1) {
+        drawingStates.pop(); // 也移除唯一的状态，因为我们将恢复到完全空白的画布
+        drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height); // 清除绘图层
+    } else {
+        console.log("没有更多状态可以撤回");
+    }
+}
+async function importAndResizeImage() {
+    const fileInput = document.getElementById('importImageFile');
+    const file = fileInput.files[0];
+    if (!file) {
+        alert('请先选择一个文件');
+        return;
+    }
+    const img = new Image();
+    img.onload = function() {
+        // 创建一个临时canvas来绘制调整大小后的图像
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        const maxSize = 1024; // 目标大小
+        tempCanvas.width = maxSize;
+        tempCanvas.height = maxSize;
+
+        // 计算绘制图像的大小保持比例
+        let imgWidth = img.width;
+        let imgHeight = img.height;
+        if (imgWidth > imgHeight) {
+            imgHeight *= maxSize / imgWidth;
+            imgWidth = maxSize;
+        } else {
+            imgWidth *= maxSize / imgHeight;
+            imgHeight = maxSize;
+        }
+
+        // 居中图像
+        const dx = (maxSize - imgWidth) / 2;
+        const dy = (maxSize - imgHeight) / 2;
+
+        // 使用白色填充背景
+        tempCtx.fillStyle = '#FFFFFF';
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+        // 绘制调整大小后的图像到canvas上
+        tempCtx.drawImage(img, dx, dy, imgWidth, imgHeight);
+
+        // 将调整后的图像展示在页面上（可选）
+        const imgElement = document.createElement('img');
+imgElement.src = tempCanvas.toDataURL();
+imgElement.width = 256; // 设置展示图像的宽度
+imgElement.height = 256; // 设置展示图像的高度
+        document.getElementById('imageDisplay').innerHTML = ''; // 清除旧图像（如果有）
+        document.getElementById('imageDisplay').appendChild(imgElement);
+
+        // 更新背景画布
+        backgroundCtx.clearRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+        backgroundCtx.drawImage(tempCanvas, 0, 0, maxSize, maxSize);
+    };
+    img.src = URL.createObjectURL(file);
+}
+
+// 需要确保在loadFetchedImageIntoCanvas函数中也调用saveDrawingState函数，以保存载入的图像作为初始状态
         async function refetchImageWithMask() {
             const apiKey2 = document.getElementById('editapiKey').value;
             const apiURL2 = document.getElementById('editApiURL').value;
@@ -159,8 +250,8 @@
 
         const imgElement = document.createElement('img');
         imgElement.src = imageUrl;
-        imgElement.width = 512; // 设置图像宽度
-        imgElement.height = 512; // 设置图像高度
+        imgElement.width = 256; // 设置图像宽度
+        imgElement.height = 256; // 设置图像高度
         document.getElementById('imageDisplay').appendChild(imgElement);
     });
     alert('图像重新获取成功！');
@@ -169,89 +260,74 @@
     document.getElementById('response').textContent = '重新获取图像失败: ' + response.statusText;
 }
         }
-    </script>
-</head>
-<body class="bg-gray-50">
-    <div class="container mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold mb-8">图像获取与遮罩创建</h1>
-
-        <div class="mb-4">
-            <label for="apiKey" class="block text-gray-700 text-sm font-bold mb-2">API 密钥:</label>
-            <input type="text" id="apiKey" name="apiKey" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-        </div>
-
-        <div class="mb-4">
-            <label for="apiURL" class="block text-gray-700 text-sm font-bold mb-2">API URL:</label>
-            <input type="text" id="apiURL" name="apiURL" value="https://api.oaifree.com/v1/images/generations" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-        </div>
-
-        <div class="mb-4">
-            <label for="model" class="block text-gray-700 text-sm font-bold mb-2">模型:</label>
-            <input type="text" id="model" name="model" value="dall-e-3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-        </div>
-
-        <div class="mb-4">
-            <label for="prompt" class="block text-gray-700 text-sm font-bold mb-2">提示:</label>
-            <input type="text" id="prompt" name="prompt" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-        </div>
-
-        <div class="mb-4">
-            <label for="n" class="block text-gray-700 text-sm font-bold mb-2">N:</label>
-            <input type="number" id="n" name="n" value="1" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-        </div>
-
-        <div class="mb-4">
-            <label for="size" class="block text-gray-700 text-sm font-bold mb-2">大小:</label>
-            <select id="size" name="size" class="block appearance-none w-full bg-white border border-gray-400 hover:border-gray-500 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline">
-                <option value="1024x1024">1024x1024</option>
-                <option value="1024x1792">1024x1792</option>
-                <option value="1792x1024">1792x1024</option>
-            </select>
-        </div>
-
-        <div class="flex gap-4 mb-8">
-            <button onclick="fetchImage()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">生成图像</button>
-            <button onclick="loadFetchedImageIntoCanvas()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">载入图像到画布</button>
-            <button id="export" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">导出遮罩</button>
-        </div>
-
-        <div class="mb-4">
-            <label for="maskFile" class="block text-gray-700 text-sm font-bold mb-2">遮罩图像:</label>
-            <input type="file" id="maskFile" name="maskFile" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
-        </div>
-
-        <div class="mb-4">
-            <label for="originalImageFile" class="block text-gray-700 text-sm font-bold mb-2">原始图像:</label>
-            <input type="file" id="originalImageFile" name="originalImageFile" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
-        </div>
-
-        <div class="mb-4">
-            <label for="editApiURL" class="block text-gray-700 text-sm font-bold mb-2">编辑 API URL:</label>
-            <input type="text" id="editApiURL" name="editApiURL" value="https://api.oaifree.com/v1/images/edits" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-        </div>
-
-        <div class="mb-4">
-            <label for="editapiKey" class="block text-gray-700 text-sm font-bold mb-2">编辑 API 密钥:</label>
-            <input type="text" id="editapiKey" name="editapiKey" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-        </div>
-
-        <div class="mb-8">
-            <label for="editPrompt" class="block text-gray-700 text-sm font-bold mb-2">编辑提示:</label>
-            <input type="text" id="editPrompt" name="editPrompt" placeholder="在这里输入新的提示" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-        </div>
-
-        <button onclick="refetchImageWithMask()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">使用遮罩重新获取图像</button>
-        
-        <div id="response" class="mt-8 p-4 bg-white rounded shadow"></div>
-		<!-- 添加一个新的div用于展示图片 -->
-           <div id="imageDisplay" class="mt-8"></div>
-		
-        
-        <div id="canvas-container" class="mt-8 relative">
-            <canvas id="backgroundCanvas" style="position: absolute; left: 0; top: 0; z-index: 1;"></canvas>
-            <canvas id="drawingCanvas" style="position: absolute; left: 0; top: 0; z-index: 2;"></canvas>
-        </div>
-    </div>
-   
-</body>
+    </script> 
+ </head> 
+ <body class="bg-gray-50"> 
+  <div class="container mx-auto px-4 py-8"> 
+   <h1 class="text-3xl font-bold mb-8">图像获取与遮罩创建</h1> 
+   <div class="mb-4"> 
+    <label for="apiKey" class="block text-gray-700 text-sm font-bold mb-2">API 密钥:</label> 
+    <input type="text" id="apiKey" name="apiKey" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" /> 
+   </div> 
+   <div class="mb-4"> 
+    <label for="apiURL" class="block text-gray-700 text-sm font-bold mb-2">API URL:</label> 
+    <input type="text" id="apiURL" name="apiURL" value="https://api.oaifree.com/v1/images/generations" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" /> 
+   </div> 
+   <div class="mb-4"> 
+    <label for="model" class="block text-gray-700 text-sm font-bold mb-2">模型:</label> 
+    <input type="text" id="model" name="model" value="dall-e-3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" /> 
+   </div> 
+   <div class="mb-4"> 
+    <label for="prompt" class="block text-gray-700 text-sm font-bold mb-2">提示:</label> 
+    <input type="text" id="prompt" name="prompt" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" /> 
+   </div> 
+   <div class="mb-4"> 
+    <label for="n" class="block text-gray-700 text-sm font-bold mb-2">N:</label> 
+    <input type="number" id="n" name="n" value="1" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" /> 
+   </div> 
+   <div class="mb-4"> 
+    <label for="size" class="block text-gray-700 text-sm font-bold mb-2">大小:</label> 
+    <select id="size" name="size" class="block appearance-none w-full bg-white border border-gray-400 hover:border-gray-500 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline"> <option value="1024x1024">1024x1024</option> <option value="1024x1792">1024x1792</option> <option value="1792x1024">1792x1024</option> </select> 
+   </div> 
+   <div class="flex gap-4 mb-8"> 
+    <button onclick="fetchImage()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">生成图像</button> 
+    <button onclick="loadFetchedImageIntoCanvas()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">载入图像到画布</button> 
+   </div> 
+   <div class="mb-4"> 
+    <label for="importImageFile" class="block text-gray-700 text-sm font-bold mb-2">本地图像载入:</label> 
+    <input type="file" id="importImageFile" name="importImageFile" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border file:border-gray-400 hover:file:border-gray-500 focus:file:border-blue-500 focus:outline-none focus:shadow-outline" /> 
+    <button onclick="importAndResizeImage()" class="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">导入并调整图像为1024*1024</button> 
+   </div> 
+   <!-- 添加一个新的div用于展示图片 --> 
+   <div id="imageDisplay" class="mt-8"></div> 
+   <div class="mb-4"> 
+    <label for="maskFile" class="block text-gray-700 text-sm font-bold mb-2">遮罩图像:</label> 
+    <input type="file" id="maskFile" name="maskFile" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100" /> 
+   </div> 
+   <div class="mb-4"> 
+    <label for="originalImageFile" class="block text-gray-700 text-sm font-bold mb-2">原始图像:</label> 
+    <input type="file" id="originalImageFile" name="originalImageFile" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100" /> 
+   </div> 
+   <div class="mb-4"> 
+    <label for="editApiURL" class="block text-gray-700 text-sm font-bold mb-2">编辑 API URL:</label> 
+    <input type="text" id="editApiURL" name="editApiURL" value="https://api.oaifree.com/v1/images/edits" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" /> 
+   </div> 
+   <div class="mb-4"> 
+    <label for="editapiKey" class="block text-gray-700 text-sm font-bold mb-2">编辑 API 密钥:</label> 
+    <input type="text" id="editapiKey" name="editapiKey" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" /> 
+   </div> 
+   <div class="mb-8"> 
+    <label for="editPrompt" class="block text-gray-700 text-sm font-bold mb-2">编辑提示:</label> 
+    <input type="text" id="editPrompt" name="editPrompt" placeholder="在这里输入新的提示" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" /> 
+   </div> 
+   <button onclick="refetchImageWithMask()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">使用遮罩重新获取图像</button> 
+   <div id="response" class="mt-8 p-4 bg-white rounded shadow"></div> 
+   <button onclick="undoDrawing()" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">撤回</button> 
+   <button id="export" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">导出遮罩</button> 
+   <div id="canvas-container" class="mt-8 relative"> 
+    <canvas id="backgroundCanvas" width="1024" height="1024" style="position: absolute; left: 0; top: 0; z-index: 1;"></canvas> 
+    <canvas id="drawingCanvas" width="1024" height="1024" style="position: absolute; left: 0; top: 0; z-index: 2;"></canvas> 
+   </div> 
+  </div>   
+ </body>
 </html>
